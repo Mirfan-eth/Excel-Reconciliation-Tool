@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Excel Reconciliation Tool</title>
+  <link rel="stylesheet" href="style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+
+  <div class="container">
+    <header class="header">
+      <h1 class="title">Excel Reconciliation Tool</h1>
+      <p class="subtitle">Compare two Excel files quickly and accurately</p>
+    </header>
+
+    <main class="main-content">
+      <div class="form-grid">
+        <div class="input-box animated">
+          <label><i class="fas fa-file-excel icon"></i> File 1</label>
+          <input type="file" id="file1" accept=".xlsx">
+        </div>
+
+        <div class="input-box animated">
+          <label><i class="fas fa-file-excel icon"></i> File 2</label>
+          <input type="file" id="file2" accept=".xlsx">
+        </div>
+
+        <div class="input-box animated">
+          <label><i class="fas fa-key icon"></i> Matching Key Column</label>
+          <select id="keyColumn"></select>
+        </div>
+
+        <div class="input-box animated">
+          <label><i class="fas fa-hashtag icon"></i> File 1 Quantity Column</label>
+          <select id="qty1"></select>
+        </div>
+
+        <div class="input-box animated">
+          <label><i class="fas fa-hashtag icon"></i> File 2 Quantity Column</label>
+          <select id="qty2"></select>
+        </div>
+
+        <div class="input-box checkbox animated">
+          <label>
+            <input type="checkbox" id="ignoreZero">
+            <span class="checkmark"></span>
+            Ignore Zero Variance Records
+          </label>
+        </div>
+      </div>
+
+      <button onclick="runReconciliation()" class="run-btn animated">
+        <i class="fas fa-play"></i> Run Reconciliation
+      </button>
+    </main>
+
+    <footer class="footer">
+      <p>Built by <strong>Mohd Irfan</strong></p>
+    </footer>
+  </div>
+
+  <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

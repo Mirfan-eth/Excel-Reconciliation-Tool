@@ -1,6 +1,7 @@
 let data1 = [];
 let data2 = [];
-let headers = [];
+let headers1 = [];
+let headers2 = [];
 
 document.getElementById("file1").addEventListener("change", e => loadFile(e, 1));
 document.getElementById("file2").addEventListener("change", e => loadFile(e, 2));
@@ -12,25 +13,41 @@ function loadFile(event, fileNo) {
     const sheet = wb.Sheets[wb.SheetNames[0]];
     const json = XLSX.utils.sheet_to_json(sheet, { defval: "" });
 
-    if (fileNo === 1) data1 = json;
-    else data2 = json;
+    if (fileNo === 1) {
+      data1 = json;
+      if (json.length > 0) headers1 = Object.keys(json[0]);
+    } else {
+      data2 = json;
+      if (json.length > 0) headers2 = Object.keys(json[0]);
+    }
 
-    headers = Object.keys(json[0]);
-    populateDropdowns(headers);
+    // Re-populate dropdowns only when BOTH files are loaded
+    if (data1.length > 0 && data2.length > 0) {
+      populateDropdowns();
+    }
   };
   reader.readAsBinaryString(event.target.files[0]);
 }
 
-function populateDropdowns(headers) {
-  ["keyColumn", "qty1", "qty2"].forEach(id => {
-    const select = document.getElementById(id);
-    select.innerHTML = "";
-    headers.forEach(h => {
-      const opt = document.createElement("option");
-      opt.value = h;
-      opt.text = h;
-      select.appendChild(opt);
-    });
+function populateDropdowns() {
+  // Key Column: Show common columns first, then all from both files
+  const allKeys = [...new Set([...headers1, ...headers2])];
+  
+  // Quantity columns: Show columns from respective files
+  populateSelect("keyColumn", allKeys);
+  populateSelect("qty1", headers1);
+  populateSelect("qty2", headers2);
+}
+
+function populateSelect(selectId, headerList) {
+  const select = document.getElementById(selectId);
+  select.innerHTML = "<option value=''>Select...</option>"; // Optional: default option
+  
+  headerList.forEach(h => {
+    const opt = document.createElement("option");
+    opt.value = h;
+    opt.text = h;
+    select.appendChild(opt);
   });
 }
 
@@ -39,9 +56,20 @@ function normalize(val) {
 }
 
 function runReconciliation() {
+  if (data1.length === 0 || data2.length === 0) {
+    alert("Please upload both Excel files first!");
+    return;
+  }
+
   const key = document.getElementById("keyColumn").value;
   const q1 = document.getElementById("qty1").value;
   const q2 = document.getElementById("qty2").value;
+
+  if (!key || !q1 || !q2) {
+    alert("Please select all required columns!");
+    return;
+  }
+
   const ignoreZero = document.getElementById("ignoreZero").checked;
 
   let map1 = {};
@@ -58,7 +86,6 @@ function runReconciliation() {
   });
 
   let result = [];
-
   const keys = new Set([...Object.keys(map1), ...Object.keys(map2)]);
 
   keys.forEach(k => {
@@ -87,8 +114,15 @@ function runReconciliation() {
 }
 
 function downloadExcel(data) {
+  if (data.length === 0) {
+    alert("No variances found or all variances ignored.");
+    return;
+  }
   const ws = XLSX.utils.json_to_sheet(data);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Reconciliation");
   XLSX.writeFile(wb, "Reconciliation_Result.xlsx");
 }
+
+// Credit
+console.log("%cExcel Reconciliation Tool - Built by Mohd Irfan", "color: #667eea; font-size: 14px; font-weight: bold;");

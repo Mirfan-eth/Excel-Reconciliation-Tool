@@ -7,33 +7,44 @@ document.getElementById("file1").addEventListener("change", e => loadFile(e, 1))
 document.getElementById("file2").addEventListener("change", e => loadFile(e, 2));
 
 function loadFile(event, fileNo) {
+  const file = event.target.files[0];
+  if (!file) return;
+
   const reader = new FileReader();
-  reader.onload = e => {
-    const wb = XLSX.read(e.target.result, { type: "binary" });
-    const sheet = wb.Sheets[wb.SheetNames[0]];
-    const json = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+  reader.onload = function(e) {
+    try {
+      const wb = XLSX.read(e.target.result, { type: "binary" });
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      const json = XLSX.utils.sheet_to_json(sheet, { defval: "" });
 
-    if (fileNo === 1) {
-      data1 = json;
-      if (json.length > 0) headers1 = Object.keys(json[0]);
-    } else {
-      data2 = json;
-      if (json.length > 0) headers2 = Object.keys(json[0]);
-    }
+      if (json.length === 0) {
+        alert("Selected Excel file is empty or has no data!");
+        return;
+      }
 
-    // Re-populate dropdowns only when BOTH files are loaded
-    if (data1.length > 0 && data2.length > 0) {
-      populateDropdowns();
+      if (fileNo === 1) {
+        data1 = json;
+        headers1 = Object.keys(json[0]);
+      } else {
+        data2 = json;
+        headers2 = Object.keys(json[0]);
+      }
+
+      // Only populate when both files are loaded
+      if (data1.length > 0 && data2.length > 0) {
+        populateDropdowns();
+      }
+    } catch (err) {
+      alert("Error reading file: " + err.message);
     }
   };
-  reader.readAsBinaryString(event.target.files[0]);
+  reader.readAsBinaryString(file);
 }
 
 function populateDropdowns() {
-  // Key Column: Show common columns first, then all from both files
+  // Key column: show all unique columns from both files
   const allKeys = [...new Set([...headers1, ...headers2])];
   
-  // Quantity columns: Show columns from respective files
   populateSelect("keyColumn", allKeys);
   populateSelect("qty1", headers1);
   populateSelect("qty2", headers2);
@@ -41,17 +52,18 @@ function populateDropdowns() {
 
 function populateSelect(selectId, headerList) {
   const select = document.getElementById(selectId);
-  select.innerHTML = "<option value=''>Select...</option>"; // Optional: default option
+  select.innerHTML = '<option value="">-- Select Column --</option>';
   
-  headerList.forEach(h => {
-    const opt = document.createElement("option");
-    opt.value = h;
-    opt.text = h;
-    select.appendChild(opt);
+  headerList.forEach(header => {
+    const option = document.createElement("option");
+    option.value = header;
+    option.textContent = header;
+    select.appendChild(option);
   });
 }
 
 function normalize(val) {
+  if (val === null || val === undefined) return "";
   return val.toString().trim().toUpperCase();
 }
 
@@ -66,7 +78,7 @@ function runReconciliation() {
   const q2 = document.getElementById("qty2").value;
 
   if (!key || !q1 || !q2) {
-    alert("Please select all required columns!");
+    alert("Please select Matching Key and Quantity columns for both files!");
     return;
   }
 
@@ -75,20 +87,24 @@ function runReconciliation() {
   let map1 = {};
   let map2 = {};
 
-  data1.forEach(r => {
-    const k = normalize(r[key]);
-    map1[k] = (map1[k] || 0) + Number(r[q1] || 0);
+  data1.forEach(row => {
+    const k = normalize(row[key]);
+    if (k !== "") {
+      map1[k] = (map1[k] || 0) + Number(row[q1] || 0);
+    }
   });
 
-  data2.forEach(r => {
-    const k = normalize(r[key]);
-    map2[k] = (map2[k] || 0) + Number(r[q2] || 0);
+  data2.forEach(row => {
+    const k = normalize(row[key]);
+    if (k !== "") {
+      map2[k] = (map2[k] || 0) + Number(row[q2] || 0);
+    }
   });
 
   let result = [];
-  const keys = new Set([...Object.keys(map1), ...Object.keys(map2)]);
+  const allKeys = new Set([...Object.keys(map1), ...Object.keys(map2)]);
 
-  keys.forEach(k => {
+  allKeys.forEach(k => {
     const v1 = map1[k] || 0;
     const v2 = map2[k] || 0;
     const variance = v1 - v2;
@@ -96,33 +112,33 @@ function runReconciliation() {
     if (ignoreZero && variance === 0) return;
 
     let status = "Match";
-    if (!map2[k]) status = "Missing in File 2";
-    else if (!map1[k]) status = "Excess in File 2";
-    else if (variance < 0) status = "Short";
-    else if (variance > 0) status = "Excess";
+    if (v1 === 0) status = "Missing in File 1 (Excess in File 2)";
+    else if (v2 === 0) status = "Missing in File 2 (Excess in File 1)";
+    else if (variance > 0) status = "Excess in File 1";
+    else if (variance < 0) status = "Short in File 1";
 
     result.push({
       Key: k,
-      File1_Qty: v1,
-      File2_Qty: v2,
+      "File 1 Qty": v1,
+      "File 2 Qty": v2,
       Variance: variance,
       Status: status
     });
   });
 
+  if (result.length === 0) {
+    alert("No differences found or all variances are zero (ignored).");
+    return;
+  }
+
   downloadExcel(result);
 }
 
 function downloadExcel(data) {
-  if (data.length === 0) {
-    alert("No variances found or all variances ignored.");
-    return;
-  }
   const ws = XLSX.utils.json_to_sheet(data);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Reconciliation");
   XLSX.writeFile(wb, "Reconciliation_Result.xlsx");
 }
 
-// Credit
 console.log("%cExcel Reconciliation Tool - Built by Mohd Irfan", "color: #667eea; font-size: 14px; font-weight: bold;");
